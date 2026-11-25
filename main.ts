@@ -40,3 +40,27 @@ if (ENTRY.includes("\n") || ENTRY.includes("\r")) {
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "entry.txt"), ENTRY, "utf8");
+
+// --- Post-write read-back verification ---
+// Re-reads the entry file just written and asserts it is exactly the entry:
+// 88 code points, 90 UTF-8 bytes, one line, no trailing newline.
+// Fails loudly (non-zero exit) on any mismatch.
+{
+  const { readFileSync } = await import("node:fs");
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+  const entryPath = `${outDir}/entry.txt`;
+  const expectedEntry =
+    "pocketbuzz — The false feeling that your phone is buzzing in your pocket when it is not.";
+  const buf = readFileSync(entryPath);
+  const text = buf.toString("utf8");
+  const fail = (msg: string): never => {
+    throw new Error(`read-back verification failed: ${msg}`);
+  };
+  if (text !== expectedEntry) fail(`content mismatch (got ${JSON.stringify(text)})`);
+  if ([...text].length !== 88) fail(`expected 88 code points, got ${[...text].length}`);
+  if (buf.length !== 90) fail(`expected 90 UTF-8 bytes, got ${buf.length}`);
+  if (text.includes("\n")) fail("entry must be a single line with no newline");
+  console.log(
+    `read-back verification passed: ${buf.length} bytes, ${[...text].length} code points, 1 line, no trailing newline (${entryPath})`,
+  );
+}
